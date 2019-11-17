@@ -40,12 +40,34 @@ class ParamikoBackend(base.BaseBackend):
 
     def __init__(
             self, hostspec, ssh_config=None, ssh_identity_file=None,
-            *args, **kwargs):
+            timeout=10, *args, **kwargs):
         self.host = self.parse_hostspec(hostspec)
         self.ssh_config = ssh_config
         self.ssh_identity_file = ssh_identity_file
         self.get_pty = False
+        self.timeout = int(timeout)
         super(ParamikoBackend, self).__init__(self.host.name, *args, **kwargs)
+
+    def _load_ssh_config(self, client, cfg, ssh_config):
+        for key, value in ssh_config.lookup(self.host.name).items():
+            if key == "hostname":
+                cfg[key] = value
+            elif key == "user":
+                cfg["username"] = value
+            elif key == "port":
+                cfg[key] = int(value)
+            elif key == "identityfile":
+                cfg["key_filename"] = os.path.expanduser(value[0])
+            elif key == "stricthostkeychecking" and value == "no":
+                client.set_missing_host_key_policy(IgnorePolicy())
+            elif key == "requesttty":
+                self.get_pty = value in ('yes', 'force')
+            elif key == "gssapikeyexchange":
+                cfg['gss_auth'] = (value == 'yes')
+            elif key == "gssapiauthentication":
+                cfg['gss_kex'] = (value == 'yes')
+            elif key == "proxycommand":
+                cfg['sock'] = paramiko.ProxyCommand(value)
 
     @cached_property
     def client(self):
@@ -55,30 +77,26 @@ class ParamikoBackend(base.BaseBackend):
             "hostname": self.host.name,
             "port": int(self.host.port) if self.host.port else 22,
             "username": self.host.user,
+            "timeout": self.timeout,
         }
         if self.ssh_config:
-            ssh_config = paramiko.SSHConfig()
             with open(self.ssh_config) as f:
+                ssh_config = paramiko.SSHConfig()
                 ssh_config.parse(f)
+                self._load_ssh_config(client, cfg, ssh_config)
+        else:
+            # fallback reading ~/.ssh/config
+            default_ssh_config = os.path.join(
+                os.path.expanduser('~'), '.ssh', 'config')
+            try:
+                with open(default_ssh_config) as f:
+                    ssh_config = paramiko.SSHConfig()
+                    ssh_config.parse(f)
+            except IOError:
+                pass
+            else:
+                self._load_ssh_config(client, cfg, ssh_config)
 
-            for key, value in ssh_config.lookup(self.host.name).items():
-                if key == "hostname":
-                    cfg[key] = value
-                elif key == "user":
-                    cfg["username"] = value
-                elif key == "port":
-                    cfg[key] = int(value)
-                elif key == "identityfile":
-                    cfg["key_filename"] = os.path.expanduser(value[0])
-                elif key == "stricthostkeychecking" and value == "no":
-                    client.set_missing_host_key_policy(IgnorePolicy())
-                elif key == "requesttty":
-                    if cfg[key] in ('yes', 'force'):
-                        self.get_pty = True
-                elif key == "gssapikeyexchange":
-                    cfg['gss_auth'] = (value == 'yes')
-                elif key == "gssapiauthentication":
-                    cfg['gss_kex'] = (value == 'yes')
         if self.ssh_identity_file:
             cfg["key_filename"] = self.ssh_identity_file
         client.connect(**cfg)

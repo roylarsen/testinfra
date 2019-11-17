@@ -64,21 +64,23 @@ class Package(Module):
         return "<package %s>" % (self.name,)
 
     @classmethod
+    # pylint: disable=too-many-return-statements
     def get_module_class(cls, host):
+        if host.system_info.type == 'windows':
+            return ChocolateyPackage
         if host.system_info.type == "freebsd":
             return FreeBSDPackage
-        elif host.system_info.type in ("openbsd", "netbsd"):
+        if host.system_info.type in ("openbsd", "netbsd"):
             return OpenBSDPackage
-        elif host.exists("dpkg-query"):
+        if host.exists("dpkg-query"):
             return DebianPackage
-        elif host.exists("rpm"):
+        if host.exists("rpm"):
             return RpmPackage
-        elif host.exists("apk"):
+        if host.exists("apk"):
             return AlpinePackage
-        elif host.system_info.distribution == "arch":
+        if host.system_info.distribution == "arch":
             return ArchPackage
-        else:
-            raise NotImplementedError
+        raise NotImplementedError
 
 
 class DebianPackage(Package):
@@ -186,6 +188,23 @@ class ArchPackage(Package):
     def version(self):
         out = self.check_output("pacman -Q %s", self.name).split(" ")
         return out[1]
+
+    @property
+    def release(self):
+        raise NotImplementedError
+
+
+class ChocolateyPackage(Package):
+
+    @property
+    def is_installed(self):
+        return self.run_test("choco info -lo %s", self.name).rc == 0
+
+    @property
+    def version(self):
+        _, version = self.check_output(
+            "choco info -lo %s -r", self.name).split("|", 1)
+        return version
 
     @property
     def release(self):

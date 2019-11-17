@@ -29,7 +29,7 @@ class AnsibleException(Exception):
     ...     host.ansible("command", "echo foo")
     ... except host.ansible.AnsibleException as exc:
     ...     assert exc.result['failed'] is True
-    ...     assert exc.result['msg'] == 'check mode not supported for command'
+    ...     assert exc.result['msg'] == 'Skipped. You might want to try check=False'  # noqa
     """
 
     def __init__(self, result):
@@ -76,6 +76,7 @@ class Ansible(InstanceModule):
     '0640'
 
     """
+    # pylint: disable=self-assigning-variable
     AnsibleException = AnsibleException
 
     @need_ansible
@@ -83,7 +84,7 @@ class Ansible(InstanceModule):
                  become=False, **kwargs):
         result = self._host.backend.run_ansible(
             module_name, module_args, check=check, become=become, **kwargs)
-        if result.get("failed", False) is True:
+        if result.get("failed", False):
             raise AnsibleException(result)
         return result
 

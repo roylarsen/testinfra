@@ -28,7 +28,7 @@ from testinfra.modules.socket import parse_socketspec
 all_images = pytest.mark.testinfra_hosts(*[
     "docker://{}".format(image)
     for image in (
-        "alpine_38", "archlinux", "centos_6", "centos_7",
+        "alpine", "archlinux", "centos_6", "centos_7",
         "debian_stretch", "ubuntu_xenial"
     )
 ])
@@ -37,15 +37,15 @@ all_images = pytest.mark.testinfra_hosts(*[
 @all_images
 def test_package(host, docker_image):
     assert not host.package('zsh').is_installed
-    if docker_image in ("alpine_38", "archlinux"):
+    if docker_image in ("alpine", "archlinux"):
         name = "openssh"
     else:
         name = "openssh-server"
 
     ssh = host.package(name)
     version = {
-        "alpine_38": "7.",
-        "archlinux": "7.",
+        "alpine": "7.",
+        "archlinux": "8.",
         "centos_6": "5.",
         "centos_7": "7.",
         "debian_stretch": "1:7.4",
@@ -54,7 +54,7 @@ def test_package(host, docker_image):
     assert ssh.is_installed
     assert ssh.version.startswith(version)
     release = {
-        "alpine_38": "r3",
+        "alpine": "r6",
         "archlinux": None,
         "centos_6": ".el6",
         "centos_7": ".el7",
@@ -93,12 +93,12 @@ def test_systeminfo(host, docker_image):
     assert host.system_info.type == "linux"
 
     release, distribution, codename = {
-        "alpine_38": ("^3\.8\.", "alpine", None),
+        "alpine": (r"^3\.9\.", "alpine", None),
         "archlinux": ("rolling", "arch", None),
         "centos_6": (r"^6", "CentOS", None),
-        "centos_7": ("^7$", "centos", None),
-        "debian_stretch": ("^9\.", "debian", "stretch"),
-        "ubuntu_xenial": ("^16\.04$", "ubuntu", "xenial")
+        "centos_7": (r"^7$", "centos", None),
+        "debian_stretch": (r"^9\.", "debian", "stretch"),
+        "ubuntu_xenial": (r"^16\.04$", "ubuntu", "xenial")
     }[docker_image]
 
     assert host.system_info.distribution == distribution
@@ -109,7 +109,7 @@ def test_systeminfo(host, docker_image):
 @all_images
 def test_ssh_service(host, docker_image):
     if docker_image in ("centos_6", "centos_7",
-                        "alpine_38", "archlinux"):
+                        "alpine", "archlinux"):
         name = "sshd"
     else:
         name = "ssh"
@@ -117,9 +117,16 @@ def test_ssh_service(host, docker_image):
     ssh = host.service(name)
     if docker_image == "ubuntu_xenial":
         assert not ssh.is_running
-    # FIXME: is_running test is broken for archlinux for unknown reason
-    elif docker_image != "archlinux":
-        assert ssh.is_running
+    else:
+        # wait at max 10 seconds for ssh is running
+        for _ in range(10):
+            if ssh.is_running:
+                break
+            time.sleep(1)
+        else:
+            if docker_image == "archlinux":
+                raise pytest.skip('FIXME: flapping test')
+            raise AssertionError('ssh is not running')
 
     if docker_image == "ubuntu_xenial":
         assert not ssh.is_enabled
@@ -201,13 +208,13 @@ def test_socket(host):
 def test_process(host, docker_image):
     init = host.process.get(pid=1)
     assert init.ppid == 0
-    if docker_image != "alpine_38":
+    if docker_image != "alpine":
         # busybox ps doesn't have a euid equivalent
         assert init.euid == 0
     assert init.user == "root"
 
     args, comm = {
-        "alpine_38": ("/sbin/init", "init"),
+        "alpine": ("/sbin/init", "init"),
         "archlinux": ("/usr/sbin/init", "systemd"),
         "centos_6": ("/usr/sbin/sshd -D", "sshd"),
         "centos_7": ("/usr/sbin/init", "systemd"),
@@ -222,7 +229,7 @@ def test_user(host):
     user = host.user("sshd")
     assert user.exists
     assert user.name == "sshd"
-    assert user.uid == 107
+    assert user.uid == 106
     assert user.gid == 65534
     assert user.group == "nogroup"
     assert user.gids == [65534]
@@ -293,11 +300,11 @@ def test_file(host):
         "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
     )
     host.check_output("ln -fsn /d/f /d/l")
-    l = host.file("/d/l")
-    assert l.is_symlink
-    assert l.is_file
-    assert l.linked_to == "/d/f"
-    assert l.linked_to == f
+    link = host.file("/d/l")
+    assert link.is_symlink
+    assert link.is_file
+    assert link.linked_to == "/d/f"
+    assert link.linked_to == f
     assert f == host.file('/d/f')
     assert not d == f
 
@@ -318,8 +325,6 @@ def test_ansible_unavailable(host):
 
 @pytest.mark.testinfra_hosts("ansible://debian_stretch")
 def test_ansible_module(host):
-    import ansible
-    version = int(ansible.__version__.split(".", 1)[0])
     setup = host.ansible("setup")["ansible_facts"]
     assert setup["ansible_lsb"]["codename"] == "stretch"
     passwd = host.ansible("file", "path=/etc/passwd state=file")
@@ -340,24 +345,23 @@ def test_ansible_module(host):
     assert variables["mygroupvar"] == "qux"
     assert variables["inventory_hostname"] == "debian_stretch"
     assert variables["group_names"] == ["testgroup"]
+    assert variables["groups"] == {
+        "all": ["debian_stretch"],
+        "testgroup": ["debian_stretch"],
+    }
 
     with pytest.raises(host.ansible.AnsibleException) as excinfo:
         host.ansible("command", "zzz")
-    if version == 1:
-        msg = "check mode not supported for command"
-    else:
-        msg = "Skipped. You might want to try check=False"
-    assert excinfo.value.result['msg'] == msg
+    assert excinfo.value.result['msg'] == \
+        "Skipped. You might want to try check=False"
 
     try:
         host.ansible("command", "zzz", check=False)
     except host.ansible.AnsibleException as exc:
         assert exc.result['rc'] == 2
-        if version == 1:
-            assert exc.result['msg'] == '[Errno 2] No such file or directory'
-        else:
-            assert exc.result['msg'] == ('[Errno 2] Aucun fichier ou dossier '
-                                         'de ce type')
+        # notez que the debian stretch container is set to LANG=fr_FR
+        assert exc.result['msg'] == ('[Errno 2] Aucun fichier ou dossier '
+                                     'de ce type')
 
     result = host.ansible("command", "echo foo", check=False)
     assert result['stdout'] == 'foo'
@@ -481,6 +485,10 @@ def test_pip_package(host):
         pip_path='/v/bin/pip')['pytest']
     assert outdated['current'] == pytest['version']
     assert int(outdated['latest'].split('.')[0]) > 2
+
+
+def test_environment_home(host):
+    assert host.environment().get('HOME') == '/root'
 
 
 def test_iptables(host):

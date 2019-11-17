@@ -44,11 +44,16 @@ See also the :ref:`Test docker images` example.
 ssh
 ~~~
 
-This is a pure SSH backend using the ``ssh`` command available in ``$PATH``. Example::
+This is a pure SSH backend using the ``ssh`` command. Example::
 
     $ py.test --hosts='ssh://server'
+    $ py.test --ssh-config=/path/to/ssh_config --hosts='ssh://server'
+    $ py.test --ssh-identity-file=/path/to/key --hosts='ssh://server'
+    $ py.test --hosts='ssh://server?timeout=60&controlpersist=120'
 
-The ssh backend also accepts the ``--ssh-config`` option.
+
+By default timeout is set to 10 seconds and ControlPersist is set to 60 seconds.
+You can disable persistent connection by passing `controlpersist=0` to the options.
 
 
 salt
@@ -73,19 +78,21 @@ Hosts can be seleted by using the `glob` and `compound matchers
 ansible
 ~~~~~~~
 
+The ansible backend is able to parse ansible inventories to get host connection details.
+For local, ssh, paramiko or docker connections it will use the equivalent
+testinfra connection backend, unless `force_ansible=True` (or ``--force-ansible``) is set.
 
-The ansible backend uses the `ansible Python API
-<https://docs.ansible.com/ansible/developing_api.html>`_::
+For other connections types or when `force_ansible=True`, testinfra will run
+all commands through ansible, which is substantially slower than using native
+connections backends.
 
-    $ py.test --hosts=all # tests all inventory hosts
+Examples::
+
+    $ py.test --hosts='ansible://all' # tests all inventory hosts
     $ py.test --hosts='ansible://host1,ansible://host2'
     $ py.test --hosts='ansible://web*'
-
-You can use an alternative `inventory` with the ``--ansible-inventory`` option.
-
-Note: Ansible settings such as ``remote_user``, etc., may be configured by using Ansible's
-`environment variables <http://docs.ansible.com/ansible/intro_configuration.html#environmental-configuration>`_.
-
+    $ py.test --force-ansible --hosts='ansible://all'
+    $ py.test --hosts='ansible://host?force_ansible=True'
 
 kubectl
 ~~~~~~~
@@ -99,7 +106,9 @@ namespace::
     $ py.test --hosts='kubectl://mypod-a1b2c3'
     # specify container name and namespace
     $ py.test --hosts='kubectl://somepod-2536ab?container=nginx&namespace=web'
-
+    # you can specify kubeconfig either from KUBECONFIG environment variable
+    # or when working with multiple configuration with the "kubeconfig" option
+    $ py.test --hosts='kubectl://somepod-123?kubeconfig=/path/kubeconfig,kubectl://otherpod-123?kubeconfig=/other/kubeconfig'
 
 winrm
 ~~~~~
@@ -114,10 +123,10 @@ arguments ``read_timeout_sec`` and ``operation_timeout_sec``::
 
     $ py.test --hosts='winrm://vagrant@127.0.0.1:2200?read_timeout_sec=120&operation_timeout_sec=100'
 
-LXC
-~~~
+LXC/LXD
+~~~~~~~
 
-The LXC backend can be used to test *running* LXC containers. It uses the
+The LXC backend can be used to test *running* LXC or LXD containers. It uses the
 `lxc exec <https://linuxcontainers.org/lxd/getting-started-cli/>`_ command::
 
     $ py.test --hosts='lxc://container_name'

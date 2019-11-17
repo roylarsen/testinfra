@@ -2,6 +2,92 @@
 Changelog
 =========
 
+3.2.1
+=====
+
+* Fix Process module when working with long strings (username, ...) #505
+
+3.2.0
+=====
+
+* New module "environment" for getting remote environment variables
+* New module "block_device" exposing block device informations
+* Add a global flag --force-ansible to the command line
+* Raise an error in case of missing ansible inventory file
+* Fix an escape issue with ansible ssh args set inventory or configuration file
+
+3.1.0
+=====
+
+* ssh connections uses persistent connections by default. You can disable this
+  by passing controlpersist=0 to the connections options.
+* ansible ssh connections now use ssh backend instead of paramiko.
+  ansible_ssh_common_args and ansible_ssh_extra_args are now taking in account.
+* Add a new ansible connection options "force_ansible", when set to True,
+  testinfra will always call ansible for all commands he need to run.
+* Handle all ansible connections types by setting force_ansible=True for
+  connections which doesn't have a testinfra equivalent connection (for example
+  "network_cli").
+
+3.0.6
+=====
+
+* Issue full command logging using DEBUG log level to avoid logging sensible data when log level is INFO.
+* Fix possible crash when parsing ansible inventories #470
+* Support using alternative kubeconfig file in kubectl connections #460
+* Support parsing ProxyCommand from ssh_config for paramiko connections
+
+3.0.5
+=====
+
+* Set default timeout to 10s on ssh/paramiko connections
+* Add support for ansible inventory parameter ansible_private_key_file
+
+3.0.4
+=====
+
+* Add support for ansible lxc and lxd connections
+
+3.0.3
+=====
+
+* Fix paramiko parsing RequestTTY from ssh configs
+* Re-add "groups" key from ansible.get_variables() to be backward compatible
+  with testinfra 2.X
+
+3.0.2
+=====
+
+* Fix ansible with no inventory resolving to "localhost"
+* Fix support for ansible 2.8 with no inventory
+* Fix ansible/paramiko which wasn't reading hosts config from ~/.ssh/config
+* Allow to pass --ssh-config and --ssh-identity-file to ansible connection
+
+3.0.1
+=====
+
+* Fix parsing of ipv6 adresses for paramiko, ssh and ansible backends.
+* Fix --connection=ansible invocation when no hosts are provided
+
+3.0.0
+=====
+
+* New ansible backend fixing support for ansible 2.8 and license issue. See
+  https://github.com/philpep/testinfra/issues/431 for details. This make
+  ansible using testinfra native backends and only works for local, ssh or
+  docker connections. I you have others connection types or issues, please open
+  a bug on https://github.com/philpep/testinfra/issues/new
+* Windows support is improved. "package" module is handled with Chocolatey and
+  there's support for the "user" module.
+
+
+2.1.0
+======
+
+* docker: new get_containers() classmethod
+* socket: fix parsing of ipv6 addresses with new versions of ss
+* service: systemd fallback to sysv when "systemctl is-active" is not working
+
 2.0.0
 ======
 

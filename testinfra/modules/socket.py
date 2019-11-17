@@ -205,10 +205,9 @@ class Socket(Module):
             raise RuntimeError(
                 'could not use the Socket module, either "ss" or "netstat"'
                 ' utility is required in $PATH')
-        elif host.system_info.type.endswith("bsd"):
+        if host.system_info.type.endswith("bsd"):
             return BSDSocket
-        else:
-            raise NotImplementedError
+        raise NotImplementedError
 
 
 class LinuxSocketSS(Socket):
@@ -251,6 +250,9 @@ class LinuxSocketSS(Socket):
             elif protocol in ('tcp', 'udp'):
                 host, port = local.rsplit(':', 1)
                 port = int(port)
+                # new versions of ss output ipv6 adresses enclosed in []
+                if host and host[0] == '[' and host[-1] == ']':
+                    host = host[1:-1]
             else:
                 continue
 

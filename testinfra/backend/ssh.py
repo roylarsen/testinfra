@@ -23,18 +23,24 @@ class SshBackend(base.BaseBackend):
     NAME = "ssh"
 
     def __init__(self, hostspec, ssh_config=None, ssh_identity_file=None,
+                 timeout=10, controlpersist=60, ssh_extra_args=None,
                  *args, **kwargs):
         self.host = self.parse_hostspec(hostspec)
         self.ssh_config = ssh_config
         self.ssh_identity_file = ssh_identity_file
+        self.timeout = int(timeout)
+        self.controlpersist = int(controlpersist)
+        self.ssh_extra_args = ssh_extra_args
         super(SshBackend, self).__init__(self.host.name, *args, **kwargs)
 
     def run(self, command, *args, **kwargs):
         return self.run_ssh(self.get_command(command, *args))
 
-    def run_ssh(self, command):
+    def _build_ssh_command(self, command):
         cmd = ["ssh"]
         cmd_args = []
+        if self.ssh_extra_args:
+            cmd.append(self.ssh_extra_args.replace('%', '%%'))
         if self.ssh_config:
             cmd.append("-F %s")
             cmd_args.append(self.ssh_config)
@@ -47,11 +53,26 @@ class SshBackend(base.BaseBackend):
         if self.ssh_identity_file:
             cmd.append("-i %s")
             cmd_args.append(self.ssh_identity_file)
+        if 'connecttimeout' not in (self.ssh_extra_args or '').lower():
+            cmd.append("-o ConnectTimeout={}".format(self.timeout))
+        if self.controlpersist and (
+            'controlmaster' not in (self.ssh_extra_args or '').lower()
+        ):
+            cmd.append("-o ControlMaster=auto -o ControlPersist=%ds" % (
+                self.controlpersist))
         cmd.append("%s %s")
         cmd_args.extend([self.host.name, command])
+        return cmd, cmd_args
+
+    def run_ssh(self, command):
+        cmd, cmd_args = self._build_ssh_command(command)
         out = self.run_local(
             " ".join(cmd), *cmd_args)
         out.command = self.encode(command)
+        if out.rc == 255:
+            # ssh exits with the exit status of the remote command or with 255
+            # if an error occurred.
+            raise RuntimeError(out)
         return out
 
 
@@ -73,6 +94,7 @@ class SafeSshBackend(SshBackend):
 
     def run(self, command, *args, **kwargs):
         orig_command = self.get_command(command, *args)
+        orig_command = self.get_command('sh -c %s', orig_command)
 
         out = self.run_ssh((
             '''of=$(mktemp)&&ef=$(mktemp)&&%s >$of 2>$ef; r=$?;'''
