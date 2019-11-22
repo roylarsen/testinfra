@@ -1,3 +1,15 @@
+testinfra (3.2.1-1) unstable; urgency=medium
+
+  * New upstream release
+  * Switch to Standards-Version: 4.3.0
+  * Drop explicit dependencies and let pybuild detect dependencies
+  * Drop unused pbr stuff in d/rules
+  * Drop useless override_dh_auto_install since /usr/bin/testinfra doesn't
+    exists anymore
+  * Build doc package with python3
+
+ -- Philippe Pepiot <phil@philpep.org>  Sun, 17 Nov 2019 19:34:32 +0100
+
 testinfra (2.0.0-1) unstable; urgency=medium
 
   * New upstream release

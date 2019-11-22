@@ -15,23 +15,20 @@ Build-Depends:
     python3-pytest,
     python-six (>= 1.4.0),
     python3-six (>= 1.4.0),
-    python-sphinx,
-    python-alabaster,
+    python3-sphinx,
+    python3-alabaster,
 Homepage: https://github.com/philpep/testinfra
 Vcs-Browser: https://github.com/philpep/testinfra
 Vcs-Git: git://github.com/philpep/testinfra
-Standards-Version: 3.9.8
+Standards-Version: 4.3.0
 
 Package: python-testinfra
 Architecture: all
 Depends:
-    python-pytest,
-    python-six (>= 1.4.0),
     ${misc:Depends},
     ${python:Depends}
 Recommends: ${python:Recommends}
-Suggests:
-    python-paramiko
+Suggests: ${python3:Suggests}
 Description: Test infrastructure
  With Testinfra you can write unit tests in Python to test *actual state* of
  your servers configured by managements tools like Salt, Ansible, Puppet,
@@ -44,13 +41,10 @@ Description: Test infrastructure
 Package: python3-testinfra
 Architecture: all
 Depends:
-    python3-pytest,
-    python3-six (>= 1.4.0),
     ${misc:Depends},
     ${python3:Depends}
 Recommends: ${python3:Recommends}
-Suggests:
-    python3-paramiko
+Suggests: ${python3:Suggests}
 Description: Test infrastructure
  With Testinfra you can write unit tests in Python to test *actual state* of
  your servers configured by managements tools like Salt, Ansible, Puppet,

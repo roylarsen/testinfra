@@ -1,19 +1,11 @@
 #!/usr/bin/make -f
 
-DEBVERS ?= $(shell dpkg-parsechangelog | sed -n -e 's/^Version: //p')
-VERSION ?= $(shell echo '$(DEBVERS)' | sed -e 's/^[[:digit:]]*://' -e 's/[-].*//')
-export PBR_VERSION=$(VERSION)
-export PYBUILD_DISABLE=test
 export PYBUILD_NAME=testinfra
+export PYBUILD_DISABLE=test
 
 %:
 	dh $@ --buildsystem=pybuild --with python2,python3,sphinxdoc
 
-override_dh_auto_install:
-	dh_auto_install
-	rm -rf $(CURDIR)/debian/python3-testinfra/usr/bin
-	rm -rf $(CURDIR)/debian/python-testinfra/usr/bin
-
 override_dh_sphinxdoc:
-	PYTHONPATH=$(CURDIR)/debian/python-testinfra/usr/lib/python2.7/dist-packages sphinx-build -b html doc/source $(CURDIR)/debian/python-testinfra-doc/usr/share/doc/python-testinfra-doc/html
+	PYTHONPATH=$(CURDIR)/debian/python3-testinfra/usr/lib/python*/dist-packages sphinx-build -b html doc/source $(CURDIR)/debian/python-testinfra-doc/usr/share/doc/python-testinfra-doc/html
 	dh_sphinxdoc -O --buildsystem=pybuild
