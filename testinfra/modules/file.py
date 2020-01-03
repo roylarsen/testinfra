@@ -192,6 +192,8 @@ class File(Module):
             return BSDFile
         if host.system_info.type == "darwin":
             return DarwinFile
+        if host.system_info.type == "windows":
+            return WindowsFile
         raise NotImplementedError
 
 
@@ -306,3 +308,9 @@ class NetBSDFile(BSDFile):
     def sha256sum(self):
         return self.check_output(
             "cksum -a sha256 < %s", self.path)
+
+class WindowsFile(File):
+
+    @property
+    def exists(self):
+        return self.run_test("dir %s", self.path).rc == 0 
