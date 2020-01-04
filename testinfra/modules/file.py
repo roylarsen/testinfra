@@ -315,7 +315,7 @@ class WindowsFile(File):
     >>> host.file(r'C:\file').exists
     True
 
-    >>> host.file('E:\\staging').exists
+    >>> host.file('C:\\file').exists
     True
     """ 
     @property
