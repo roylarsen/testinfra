@@ -310,7 +310,14 @@ class NetBSDFile(BSDFile):
             "cksum -a sha256 < %s", self.path)
 
 class WindowsFile(File):
+    """For Windows file paths, you either need to escape slashes or use string literals
+    
+    >>> host.file(r'C:\file').exists
+    True
 
+    >>> host.file('E:\\staging').exists
+    True
+    """ 
     @property
     def exists(self):
-        return self.run_test("dir %s", self.path).rc == 0 
+        return self.run_test('dir %s', self.path).rc == 0 
